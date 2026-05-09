@@ -1,0 +1,469 @@
+.grid-controls-panel {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 320px;
+  background: hsl(var(--card) / 0.92);
+  backdrop-filter: blur(18px);
+  border: 1px solid hsl(var(--border));
+  border-radius: 14px;
+  padding: 20px;
+  z-index: 200;
+  pointer-events: auto;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: hsl(var(--foreground));
+  box-shadow: var(--shadow-deep);
+  user-select: none;
+  transition: opacity 0.25s ease;
+}
+
+.grid-controls-panel * {
+  box-sizing: border-box;
+}
+
+/* ── Section title ─────────────────────────── */
+
+.gc-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  margin: 0 0 12px 0;
+}
+
+.gc-section-title:not(:first-child) {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ── Row layouts ───────────────────────────── */
+
+.gc-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.gc-row-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  min-width: 48px;
+}
+
+.gc-row-split {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.gc-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ── Color swatches ────────────────────────── */
+
+.gc-colors {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.gc-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.gc-swatch:hover {
+  transform: scale(1.12);
+}
+
+.gc-swatch.active {
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.35);
+}
+
+.gc-swatch-rainbow {
+  background: conic-gradient(from 0deg, #f44, #ff0, #0f0, #0ff, #00f, #f0f, #f44);
+}
+
+/* ── Opacity slider ────────────────────────── */
+
+.gc-opacity-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gc-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, hsl(var(--muted)), hsl(var(--primary)));
+  outline: none;
+  cursor: pointer;
+}
+
+.gc-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: hsl(var(--primary-glow));
+  border: 2px solid hsl(var(--primary-foreground) / 0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.gc-slider::-webkit-slider-thumb:hover {
+  background: hsl(var(--primary));
+}
+
+.gc-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: hsl(var(--primary-glow));
+  border: 2px solid hsl(var(--primary-foreground) / 0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+}
+
+/* ── Text inputs ───────────────────────────── */
+
+.gc-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 10px;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.2s ease;
+}
+
+.gc-input:focus {
+  border-color: rgba(149, 117, 205, 0.6);
+}
+
+.gc-input-with-unit {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.2s ease;
+}
+
+.gc-input-with-unit:focus-within {
+  border-color: rgba(149, 117, 205, 0.6);
+}
+
+.gc-input-with-unit input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 10px;
+  outline: none;
+  font-family: inherit;
+  min-width: 0;
+}
+
+.gc-input-unit {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  padding-right: 8px;
+  flex-shrink: 0;
+}
+
+/* ── Toggle switch ─────────────────────────── */
+
+.gc-toggle {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.gc-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.gc-toggle-track {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 11px;
+  transition: background 0.2s ease;
+}
+
+.gc-toggle input:checked + .gc-toggle-track {
+  background: hsl(var(--primary));
+}
+
+.gc-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease;
+}
+
+.gc-toggle input:checked ~ .gc-toggle-thumb {
+  transform: translateX(18px);
+}
+
+/* ── Icon button group ─────────────────────── */
+
+.gc-icon-group {
+  display: flex;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  padding: 2px;
+  flex-wrap: wrap;
+}
+
+.gc-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.gc-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.gc-icon-btn.active {
+  background: hsl(var(--primary) / 0.25);
+  color: hsl(var(--primary-glow));
+  box-shadow: inset 0 0 0 1px hsl(var(--primary) / 0.4);
+}
+
+/* ── Select dropdown ───────────────────────── */
+
+.gc-select-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.gc-select {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 10px 36px 10px 12px;
+  outline: none;
+  cursor: pointer;
+  font-family: inherit;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: border-color 0.2s ease;
+}
+
+.gc-select:focus {
+  border-color: hsl(var(--primary) / 0.6);
+}
+
+.gc-select option {
+  background: #1e1b26;
+  color: white;
+}
+
+.gc-select-arrow {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* ── Action buttons ────────────────────────── */
+
+.gc-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.gc-action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.gc-action-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+/* ── Viewport inputs ───────────────────────── */
+
+.gc-viewport-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.gc-viewport-field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.gc-viewport-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.35);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.gc-viewport-input {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 8px;
+  outline: none;
+  font-family: inherit;
+  text-align: left;
+  transition: border-color 0.2s ease;
+  width: 100%;
+}
+
+.gc-viewport-input:focus {
+  border-color: rgba(149, 117, 205, 0.6);
+}
+
+/* ── Collapse toggle ───────────────────────── */
+
+.gc-collapse-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  pointer-events: auto;
+}
+
+.gc-collapse-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* ── Line type preview icons ───────────────── */
+
+.gc-line-preview {
+  display: flex;
+  align-items: center;
+  height: 2px;
+  width: 20px;
+}
+
+.gc-line-solid {
+  width: 100%;
+  height: 2px;
+  background: currentColor;
+}
+
+.gc-line-dashed {
+  width: 100%;
+  height: 2px;
+  background: repeating-linear-gradient(
+    90deg,
+    currentColor 0px,
+    currentColor 5px,
+    transparent 5px,
+    transparent 8px
+  );
+}
+
+.gc-line-dotted {
+  width: 100%;
+  height: 2px;
+  background: repeating-linear-gradient(
+    90deg,
+    currentColor 0px,
+    currentColor 2px,
+    transparent 2px,
+    transparent 5px
+  );
+}

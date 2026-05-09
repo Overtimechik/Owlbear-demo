@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Emberforge VTT — Virtual Tabletop for Tabletop RPGs</title>
+    <meta name="description" content="A lightweight, real-time virtual tabletop for D&D and tabletop RPGs. Maps, tokens, fog of war — share a link, start playing." />
+    <meta name="author" content="Emberforge" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+
+    <meta property="og:title" content="Emberforge VTT" />
+    <meta property="og:description" content="A lightweight virtual tabletop for tabletop RPGs." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@Lovable" />
+    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+  </head>
+
+  <body>
+    <div id="error-log" style="color: red; padding: 20px; white-space: pre-wrap; font-family: monospace; z-index: 9999; position: fixed; top: 0; left: 0; pointer-events: none;"></div>
+    <script>
+      window.addEventListener('error', function(e) {
+        document.getElementById('error-log').innerText += 'ERROR: ' + e.message + '\n' + (e.error ? e.error.stack : '') + '\n\n';
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        document.getElementById('error-log').innerText += 'PROMISE REJECTION: ' + (e.reason ? e.reason.stack || e.reason : e) + '\n\n';
+      });
+    </script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
