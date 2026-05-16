@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Stage, Layer, Rect, Circle, Line, Text, Group } from "react-konva";
+import useImage from "use-image";
 import Konva from "konva";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { ImageIcon, Loader2, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { MapLayer } from "./layers/MapLayer";
 import { GridLayer } from "./layers/GridLayer";
 import { TokensLayer } from "./layers/TokensLayer";
@@ -31,9 +35,9 @@ interface Props {
   onToggleGridControls?: () => void;
 }
 
-/** Virtual world size (logical pixels) */
-const WORLD_W = 4000;
-const WORLD_H = 4000;
+/** Default virtual world size if no map is loaded */
+const DEFAULT_WORLD_W = 4000;
+const DEFAULT_WORLD_H = 4000;
 
 const VTTCanvas = ({ roomId, mapUrl, gridSize, fogEnabled, tool, showGridControls, onToggleGridControls }: Props) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -41,6 +45,10 @@ const VTTCanvas = ({ roomId, mapUrl, gridSize, fogEnabled, tool, showGridControl
   const [size, setSize] = useState({ w: 800, h: 600 });
   const [scale, setScale] = useState(0.6);
   const [pos, setPos] = useState({ x: 100, y: 50 });
+
+  const [mapImg] = useImage(mapUrl || "", "anonymous");
+  const worldW = mapImg?.width || DEFAULT_WORLD_W;
+  const worldH = mapImg?.height || DEFAULT_WORLD_H;
 
   const [tokens, setTokens] = useState<TokenData[]>([]);
   const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
@@ -55,6 +63,8 @@ const VTTCanvas = ({ roomId, mapUrl, gridSize, fogEnabled, tool, showGridControl
     start: null,
     end: null,
   });
+  const [isUploadingToken, setIsUploadingToken] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const myId = useMemo(() => Math.random().toString(36).substring(7), []);
   const myColor = useMemo(() => `hsl(${Math.random() * 360}, 70%, 60%)`, []);
@@ -303,8 +313,69 @@ const VTTCanvas = ({ roomId, mapUrl, gridSize, fogEnabled, tool, showGridControl
 
   const handleTokenUpdate = async (id: string, newData: TokenData) => {
     setTokens((prev) => prev.map((t) => (t.id === id ? newData : t)));
-    await supabase.from("tokens").update({ x: newData.x, y: newData.y, size: newData.size }).eq("id", id);
+    await supabase.from("tokens").update({ x: newData.x, y: newData.y, size: newData.size, image_url: newData.image_url }).eq("id", id);
   };
+
+  const handleTokenImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedTokenId) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload an image file");
+      return;
+    }
+
+    setIsUploadingToken(true);
+    const ext = file.name.split(".").pop();
+    const filePath = `${roomId}/tokens/${selectedTokenId}-${Date.now()}.${ext}`;
+
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from("maps")
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("maps")
+        .getPublicUrl(filePath);
+
+      const token = tokens.find(t => t.id === selectedTokenId);
+      if (token) {
+        await handleTokenUpdate(selectedTokenId, { ...token, image_url: publicUrl });
+        toast.success("Token image updated");
+      }
+    } catch (error: any) {
+      toast.error("Upload failed: " + error.message);
+    } finally {
+      setIsUploadingToken(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleTokenDelete = async () => {
+    if (!selectedTokenId) return;
+    try {
+      setTokens((prev) => prev.filter((t) => t.id !== selectedTokenId));
+      setSelectedTokenId(null);
+      const { error } = await supabase.from("tokens").delete().eq("id", selectedTokenId);
+      if (error) throw error;
+      toast.success("Token deleted");
+    } catch (error: any) {
+      toast.error("Delete failed: " + error.message);
+    }
+  };
+
+  const selectedToken = useMemo(() => tokens.find(t => t.id === selectedTokenId), [tokens, selectedTokenId]);
+  
+  const tokenMenuPos = useMemo(() => {
+    if (!selectedToken) return null;
+    const tokenSize = gridSettings.gridSize * selectedToken.size;
+    return {
+      x: selectedToken.x * scale + pos.x,
+      y: (selectedToken.y - tokenSize / 2) * scale + pos.y - 10,
+    };
+  }, [selectedToken, scale, pos, gridSettings.gridSize]);
 
   const handleStageClick = (e: any) => {
     if (e.target === e.target.getStage()) {
@@ -322,8 +393,8 @@ const VTTCanvas = ({ roomId, mapUrl, gridSize, fogEnabled, tool, showGridControl
     // Compute visible world bounds
     const x0 = Math.max(0, Math.floor(-pos.x / scale / gridSettings.gridSize) - 1);
     const y0 = Math.max(0, Math.floor(-pos.y / scale / gridSettings.gridSize) - 1);
-    const x1 = Math.min(WORLD_W / gridSettings.gridSize, Math.ceil((-pos.x + size.w) / scale / gridSettings.gridSize) + 1);
-    const y1 = Math.min(WORLD_H / gridSettings.gridSize, Math.ceil((-pos.y + size.h) / scale / gridSettings.gridSize) + 1);
+    const x1 = Math.min(worldW / gridSettings.gridSize, Math.ceil((-pos.x + size.w) / scale / gridSettings.gridSize) + 1);
+    const y1 = Math.min(worldH / gridSettings.gridSize, Math.ceil((-pos.y + size.h) / scale / gridSettings.gridSize) + 1);
     const rects: JSX.Element[] = [];
     for (let cx = x0; cx < x1; cx++) {
       for (let cy = y0; cy < y1; cy++) {
@@ -360,6 +431,46 @@ const VTTCanvas = ({ roomId, mapUrl, gridSize, fogEnabled, tool, showGridControl
         />
       )}
 
+      {selectedToken && tokenMenuPos && (
+        <div 
+          className="pointer-events-none absolute z-50 flex -translate-x-1/2 -translate-y-full items-center justify-center pb-2"
+          style={{ 
+            left: tokenMenuPos.x, 
+            top: tokenMenuPos.y,
+          }}
+        >
+          <div className="pointer-events-auto flex items-center gap-1 rounded-lg border border-border bg-card/90 p-1 shadow-deep backdrop-blur">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploadingToken}
+              title="Change token image"
+            >
+              {isUploadingToken ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
+            </Button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept="image/*"
+              onChange={handleTokenImageUpload}
+            />
+            <div className="mx-0.5 h-4 w-px bg-border" />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={handleTokenDelete}
+              title="Delete token"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       <Stage
         ref={stageRef}
         width={size.w}
@@ -385,8 +496,8 @@ const VTTCanvas = ({ roomId, mapUrl, gridSize, fogEnabled, tool, showGridControl
       >
         {/* Map + grid */}
         <Layer listening={false}>
-          <MapLayer url={mapUrl} width={WORLD_W} height={WORLD_H} />
-          <GridLayer width={WORLD_W} height={WORLD_H} settings={gridSettings} />
+          <MapLayer url={mapUrl} width={worldW} height={worldH} image={mapImg} />
+          <GridLayer width={worldW} height={worldH} settings={gridSettings} />
         </Layer>
 
         {/* Tokens */}

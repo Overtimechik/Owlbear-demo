@@ -81,16 +81,35 @@ export const Token = ({ data, isSelected, onSelect, onChange, gridSize, draggabl
         onTransformEnd={handleTransformEnd}
       >
         {img && data.image_url ? (
-          <KonvaImage
-            image={img}
-            width={imageSize}
-            height={imageSize}
-            offsetX={imageSize / 2}
-            offsetY={imageSize / 2}
-          shadowBlur={isSelected ? 5 : 0}
-          shadowColor="hsl(35 78% 55%)"
-        />
-      ) : (
+          <>
+            <Circle 
+              radius={imageSize / 2} 
+              fill="white" 
+              shadowBlur={isSelected ? 8 : 2} 
+              shadowColor={isSelected ? "hsl(35 78% 55%)" : "black"} 
+              shadowOpacity={0.5}
+            />
+            <Group
+              clipFunc={(ctx) => {
+                ctx.arc(0, 0, imageSize / 2, 0, Math.PI * 2, false);
+              }}
+            >
+              <KonvaImage
+                image={img}
+                width={imageSize}
+                height={imageSize}
+                offsetX={imageSize / 2}
+                offsetY={imageSize / 2}
+              />
+            </Group>
+            <Circle 
+              radius={imageSize / 2} 
+              stroke="hsl(35 78% 55%)" 
+              strokeWidth={2} 
+              listening={false} 
+            />
+          </>
+        ) : (
         <>
           <Circle radius={r + 3} fill="rgba(0,0,0,0.5)" shadowBlur={isSelected ? 5 : 0} shadowColor="hsl(35 78% 55%)" />
           <Circle radius={r} fill={data.color} stroke="hsl(35 78% 55%)" strokeWidth={2} />

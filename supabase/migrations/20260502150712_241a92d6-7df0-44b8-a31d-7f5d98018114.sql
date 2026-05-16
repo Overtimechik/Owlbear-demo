@@ -5,7 +5,7 @@ CREATE TABLE public.rooms (
   name TEXT NOT NULL DEFAULT 'New Adventure',
   map_url TEXT,
   grid_size INTEGER NOT NULL DEFAULT 70,
-  fog_enabled BOOLEAN NOT NULL DEFAULT true,
+  fog_enabled BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

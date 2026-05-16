@@ -23,7 +23,7 @@ const Index = () => {
     const code = generateCode();
     const { error } = await supabase
       .from("rooms")
-      .insert({ code, name: "New Adventure", map_url: "/maps/dungeon.jpg" });
+      .insert({ code, name: "New Adventure", map_url: "/maps/dungeon.jpg", fog_enabled: false });
     if (error) {
       toast.error("Could not create room");
       setCreating(false);

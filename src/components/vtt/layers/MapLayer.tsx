@@ -5,22 +5,24 @@ interface MapLayerProps {
     url?: string | null;
     width: number;
     height: number;
+    image?: HTMLImageElement;
 }
 
-export const MapLayer = ({ url, width, height }: MapLayerProps) => {
-    const [img] = useImage(url || "", "anonymous");
+export const MapLayer = ({ url, width, height, image }: MapLayerProps) => {
+    const [img] = useImage(!image && url ? url : "", "anonymous");
+    const finalImg = image || img;
 
-    if (!url) {
+    if (!url && !image) {
         return <Rect width={width} height={height} fill="#1a1a1aff" />;
     }
 
-    if (!img) {
+    if (!finalImg) {
         return null; 
     }
 
     return (
         <KonvaImage
-            image={img}
+            image={finalImg}
             width={width}
             height={height}
             x={0}
