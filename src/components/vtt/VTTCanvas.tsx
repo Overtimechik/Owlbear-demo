@@ -16,7 +16,15 @@ import type { GridSettings } from "@/lib/grid/gridTypes";
 
 // TokenData is imported from Token.tsx
 
-export type Tool = "pan" | "select" | "fog-hide" | "fog-reveal" | "pointer" | "ruler";
+export type Tool = "pan" | "select" | "fog-hide" | "fog-reveal" | "pointer" | "ruler" | "marker" | "eraser";
+
+type MarkerDot = {
+  id: string;
+  x: number;
+  y: number;
+  color: string;
+  radius: number;
+};
 
 type FogCell = {
   id: string;
@@ -58,11 +66,16 @@ const VTTCanvas = ({ roomId, mapUrl, gridSize, fogEnabled, tool, showGridControl
     gridSize: gridSize || DEFAULT_GRID_SETTINGS.gridSize,
   });
 
-  const [remotePointers, setRemotePointers] = useState<Map<string, { x: number; y: number; color: string }>>(new Map());
+  // Each entry stores the comet trail: array of positions, newest last
+  const [remotePointers, setRemotePointers] = useState<Map<string, { trail: { x: number; y: number }[]; color: string; name: string; lastUpdate: number }>>(new Map());
+  // Local pointer trail (self-preview)
+  const [localTrail, setLocalTrail] = useState<{ x: number; y: number }[]>([]);
   const [ruler, setRuler] = useState<{ start: { x: number; y: number } | null; end: { x: number; y: number } | null }>({
     start: null,
     end: null,
   });
+  const [markers, setMarkers] = useState<MarkerDot[]>([]);
+  const isDrawingMarkerRef = useRef(false);
   const [isUploadingToken, setIsUploadingToken] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -154,16 +167,31 @@ const VTTCanvas = ({ roomId, mapUrl, gridSize, fogEnabled, tool, showGridControl
       )
       .on("broadcast", { event: "pointer" }, ({ payload }) => {
         if (payload.userId === myId) return;
+        const MAX_TRAIL = 14;
         setRemotePointers((prev) => {
           const next = new Map(prev);
-          next.set(payload.userId, { 
-            x: payload.x, 
-            y: payload.y, 
-            color: payload.color, 
-            lastUpdate: Date.now() 
-          } as any);
+          const existing = next.get(payload.userId);
+          const prevTrail = existing?.trail ?? [];
+          const newTrail = [...prevTrail, { x: payload.x, y: payload.y }].slice(-MAX_TRAIL);
+          next.set(payload.userId, {
+            trail: newTrail,
+            color: payload.color,
+            name: payload.name ?? "Player",
+            lastUpdate: Date.now(),
+          });
           return next;
         });
+      })
+      .on("broadcast", { event: "marker" }, ({ payload }) => {
+        if (payload.userId === myId) return;
+        setMarkers((prev) => [
+          ...prev.filter((m) => m.id !== payload.id),
+          { id: payload.id, x: payload.x, y: payload.y, color: payload.color, radius: payload.radius },
+        ]);
+      })
+      .on("broadcast", { event: "marker-erase" }, ({ payload }) => {
+        if (payload.userId === myId) return;
+        setMarkers((prev) => prev.filter((m) => m.id !== payload.id));
       })
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
@@ -260,6 +288,49 @@ const VTTCanvas = ({ roomId, mapUrl, gridSize, fogEnabled, tool, showGridControl
     }
   };
 
+  const addMarkerAtPointer = () => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const p = stage.getPointerPosition();
+    if (!p) return;
+    const wx = (p.x - pos.x) / scale;
+    const wy = (p.y - pos.y) / scale;
+    const id = `${myId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const radius = Math.max(6, gridSettings.gridSize * 0.15);
+    const dot: MarkerDot = { id, x: wx, y: wy, color: myColor, radius };
+    setMarkers((prev) => [...prev, dot]);
+    channelRef.current?.send({
+      type: "broadcast",
+      event: "marker",
+      payload: { userId: myId, id, x: wx, y: wy, color: myColor, radius },
+    });
+  };
+
+  const eraseMarkerAtPointer = () => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const p = stage.getPointerPosition();
+    if (!p) return;
+    const wx = (p.x - pos.x) / scale;
+    const wy = (p.y - pos.y) / scale;
+    setMarkers((prev) => {
+      const toErase = prev.filter((m) => {
+        const dx = m.x - wx;
+        const dy = m.y - wy;
+        return Math.sqrt(dx * dx + dy * dy) < m.radius + 12;
+      });
+      toErase.forEach((m) => {
+        channelRef.current?.send({
+          type: "broadcast",
+          event: "marker-erase",
+          payload: { userId: myId, id: m.id },
+        });
+      });
+      const eraseIds = new Set(toErase.map((m) => m.id));
+      return prev.filter((m) => !eraseIds.has(m.id));
+    });
+  };
+
   const handleMouseDown = () => {
     if (tool === "fog-hide" || tool === "fog-reveal") {
       paintingRef.current = true;
@@ -275,22 +346,36 @@ const VTTCanvas = ({ roomId, mapUrl, gridSize, fogEnabled, tool, showGridControl
       const wy = (p.y - pos.y) / scale;
       setRuler({ start: { x: wx, y: wy }, end: { x: wx, y: wy } });
     }
+    if (tool === "marker") {
+      isDrawingMarkerRef.current = true;
+      addMarkerAtPointer();
+    }
+    if (tool === "eraser") {
+      isDrawingMarkerRef.current = true;
+      eraseMarkerAtPointer();
+    }
   };
   const handleMouseMove = () => {
     if (paintingRef.current) paintAtPointer();
 
-    if (tool === "pointer" && channelRef.current) {
+    if (tool === "pointer") {
       const stage = stageRef.current;
       if (!stage) return;
       const p = stage.getPointerPosition();
       if (!p) return;
       const wx = (p.x - pos.x) / scale;
       const wy = (p.y - pos.y) / scale;
-      channelRef.current.send({
-        type: "broadcast",
-        event: "pointer",
-        payload: { userId: myId, x: wx, y: wy, color: myColor },
-      });
+      // Update local trail
+      const MAX_TRAIL = 14;
+      setLocalTrail((prev) => [...prev, { x: wx, y: wy }].slice(-MAX_TRAIL));
+      // Broadcast to others
+      if (channelRef.current) {
+        channelRef.current.send({
+          type: "broadcast",
+          event: "pointer",
+          payload: { userId: myId, x: wx, y: wy, color: myColor, name: "Вы" },
+        });
+      }
     }
 
     if (tool === "ruler" && ruler.start) {
@@ -302,10 +387,18 @@ const VTTCanvas = ({ roomId, mapUrl, gridSize, fogEnabled, tool, showGridControl
       const wy = (p.y - pos.y) / scale;
       setRuler((prev) => ({ ...prev, end: { x: wx, y: wy } }));
     }
+
+    if (tool === "marker" && isDrawingMarkerRef.current) {
+      addMarkerAtPointer();
+    }
+    if (tool === "eraser" && isDrawingMarkerRef.current) {
+      eraseMarkerAtPointer();
+    }
   };
   const handleMouseUp = () => {
     paintingRef.current = false;
     lastPaintedRef.current = null;
+    isDrawingMarkerRef.current = false;
     if (tool === "ruler") {
       setRuler({ start: null, end: null });
     }
@@ -385,6 +478,16 @@ const VTTCanvas = ({ roomId, mapUrl, gridSize, fogEnabled, tool, showGridControl
 
   const draggableStage = tool === "pan";
 
+  // Cursor style based on tool
+  const cursorStyle = useMemo(() => {
+    if (tool === "marker") return "crosshair";
+    if (tool === "eraser") return "cell";
+    if (tool === "pointer") return "default";
+    if (tool === "ruler") return "crosshair";
+    if (tool === "pan") return "grab";
+    return "default";
+  }, [tool]);
+
   // Fog rendering: dark overlay over whole world, then "holes" (lighter rects) for revealed cells.
   // Approach: draw a semi-transparent dark rect per non-revealed cell only inside the visible viewport
   // for performance. We'll draw dark rects where !revealed, leaving revealed cells transparent.
@@ -418,7 +521,7 @@ const VTTCanvas = ({ roomId, mapUrl, gridSize, fogEnabled, tool, showGridControl
   }, [fog, fogEnabled, gridSettings.gridSize, pos, scale, size]);
 
   return (
-    <div ref={containerRef} className="absolute inset-0 cursor-grab" style={{ background: "hsl(25 22% 5%)" }}>
+    <div ref={containerRef} className="absolute inset-0" style={{ background: "hsl(25 22% 5%)", cursor: cursorStyle }}>
       {showGridControls && (
         <GridControls
           settings={gridSettings}
@@ -515,27 +618,112 @@ const VTTCanvas = ({ roomId, mapUrl, gridSize, fogEnabled, tool, showGridControl
         {/* Fog of war */}
         <Layer listening={tool === "fog-hide" || tool === "fog-reveal"}>{fogRects}</Layer>
 
-        {/* Interaction Layer (Pointers & Ruler) */}
-        <Layer listening={false}>
-          {/* Remote Pointers */}
-          {Array.from(remotePointers.entries()).map(([id, ptr]) => (
-            <Group key={id} x={ptr.x} y={ptr.y}>
-              <Circle 
-                radius={8} 
-                fill={ptr.color} 
-                stroke="white" 
-                strokeWidth={2} 
-                shadowBlur={10} 
-                shadowColor="black"
-                opacity={0.8}
+        {/* Markers layer */}
+        <Layer listening={tool === "eraser"}>
+          {markers.map((m) => (
+            <Group key={m.id}>
+              <Circle
+                x={m.x}
+                y={m.y}
+                radius={m.radius}
+                fill={m.color}
+                opacity={0.75}
+                shadowBlur={8}
+                shadowColor={m.color}
+                onClick={tool === "eraser" ? () => {
+                  setMarkers((prev) => prev.filter((mk) => mk.id !== m.id));
+                  channelRef.current?.send({ type: "broadcast", event: "marker-erase", payload: { userId: myId, id: m.id } });
+                } : undefined}
               />
-              <Line 
-                points={[0, 0, 15, 15]} 
-                stroke="white" 
-                strokeWidth={2} 
+              <Circle
+                x={m.x}
+                y={m.y}
+                radius={m.radius * 1.5}
+                fill={m.color}
+                opacity={0.2}
+                listening={false}
               />
             </Group>
           ))}
+        </Layer>
+
+        {/* Interaction Layer (Pointers & Ruler) */}
+        <Layer listening={false}>
+          {/* Remote Pointers — comet ball with trail */}
+          {Array.from(remotePointers.entries()).map(([id, ptr]) => {
+            const s = 1 / scale;
+            const ballR = 10 * s;
+            const labelSize = 11 * s;
+            const { trail, color, name } = ptr;
+            const head = trail[trail.length - 1];
+            if (!head) return null;
+            const labelW = Math.max(52, name.length * 7) * s;
+            return (
+              <Group key={id}>
+                {/* Comet tail — older points are smaller and more transparent */}
+                {trail.slice(0, -1).map((pt, i) => {
+                  const t = (i + 1) / trail.length; // 0 = oldest, ~1 = near head
+                  return (
+                    <Circle
+                      key={i}
+                      x={pt.x}
+                      y={pt.y}
+                      radius={ballR * (0.2 + t * 0.65)}
+                      fill={color}
+                      opacity={t * 0.45}
+                      listening={false}
+                    />
+                  );
+                })}
+                {/* Glow halo behind the ball */}
+                <Circle
+                  x={head.x}
+                  y={head.y}
+                  radius={ballR * 2}
+                  fill={color}
+                  opacity={0.18}
+                  listening={false}
+                />
+                {/* Main ball */}
+                <Circle
+                  x={head.x}
+                  y={head.y}
+                  radius={ballR}
+                  fill={color}
+                  stroke="white"
+                  strokeWidth={1.5 * s}
+                  shadowBlur={14 * s}
+                  shadowColor={color}
+                  opacity={0.97}
+                  listening={false}
+                />
+                {/* Name label */}
+                <Rect
+                  x={head.x + ballR * 1.2}
+                  y={head.y - labelSize * 0.9}
+                  width={labelW}
+                  height={labelSize * 1.8}
+                  fill={color}
+                  cornerRadius={3 * s}
+                  opacity={0.88}
+                  listening={false}
+                />
+                <Text
+                  text={name}
+                  x={head.x + ballR * 1.2}
+                  y={head.y - labelSize * 0.9}
+                  width={labelW}
+                  height={labelSize * 1.8}
+                  fill="white"
+                  fontSize={labelSize}
+                  align="center"
+                  verticalAlign="middle"
+                  fontStyle="bold"
+                  listening={false}
+                />
+              </Group>
+            );
+          })}
 
           {/* Ruler */}
           {ruler.start && ruler.end && (
@@ -543,11 +731,11 @@ const VTTCanvas = ({ roomId, mapUrl, gridSize, fogEnabled, tool, showGridControl
               <Line
                 points={[ruler.start.x, ruler.start.y, ruler.end.x, ruler.end.y]}
                 stroke="#3b82f6"
-                strokeWidth={3}
-                dash={[10, 5]}
+                strokeWidth={3 / scale}
+                dash={[10 / scale, 5 / scale]}
               />
-              <Circle x={ruler.start.x} y={ruler.start.y} radius={4} fill="#3b82f6" />
-              <Circle x={ruler.end.x} y={ruler.end.y} radius={4} fill="#3b82f6" />
+              <Circle x={ruler.start.x} y={ruler.start.y} radius={5 / scale} fill="#3b82f6" />
+              <Circle x={ruler.end.x} y={ruler.end.y} radius={5 / scale} fill="#3b82f6" />
               {(() => {
                 const dx = ruler.end.x - ruler.start.x;
                 const dy = ruler.end.y - ruler.start.y;
@@ -555,26 +743,29 @@ const VTTCanvas = ({ roomId, mapUrl, gridSize, fogEnabled, tool, showGridControl
                 const distFt = (distPx / gridSettings.gridSize) * 5;
                 const midX = (ruler.start.x + ruler.end.x) / 2;
                 const midY = (ruler.start.y + ruler.end.y) / 2;
+                const w = 60 / scale;
+                const h = 22 / scale;
+                const fSize = 13 / scale;
                 return (
                   <Group x={midX} y={midY}>
                     <Rect
-                      x={-25}
-                      y={-10}
-                      width={50}
-                      height={20}
-                      fill="rgba(0,0,0,0.7)"
-                      cornerRadius={4}
+                      x={-w / 2}
+                      y={-h / 2}
+                      width={w}
+                      height={h}
+                      fill="rgba(0,0,0,0.75)"
+                      cornerRadius={4 / scale}
                     />
                     <Text
                       text={`${distFt.toFixed(1)} ft`}
                       fill="white"
-                      fontSize={12}
+                      fontSize={fSize}
                       align="center"
                       verticalAlign="middle"
-                      width={50}
-                      height={20}
-                      x={-25}
-                      y={-10}
+                      width={w}
+                      height={h}
+                      x={-w / 2}
+                      y={-h / 2}
                     />
                   </Group>
                 );

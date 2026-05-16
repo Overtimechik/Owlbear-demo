@@ -16,6 +16,8 @@ import {
   Grid3X3,
   MousePointer2,
   Ruler as RulerIcon,
+  Pen,
+  Eraser,
 } from "lucide-react";
 import VTTCanvas, { type Tool } from "@/components/vtt/VTTCanvas";
 import DiceRoller from "@/components/vtt/DiceRoller";
@@ -173,8 +175,13 @@ const RoomPage = () => {
           <ToolBtn value="select" icon={Swords} label="Select / move tokens" />
           <ToolBtn value="fog-hide" icon={EyeOff} label="Hide (fog)" />
           <ToolBtn value="fog-reveal" icon={Eye} label="Reveal (fog)" />
-          <ToolBtn value="pointer" icon={MousePointer2} label="Pointer (Ping)" />
-          <ToolBtn value="ruler" icon={RulerIcon} label="Ruler (Measure)" />
+          <ToolBtn value="pointer" icon={MousePointer2} label="Указка (видна всем игрокам)" />
+          <ToolBtn value="ruler" icon={RulerIcon} label="Линейка" />
+
+          <div className="my-1 h-px w-8 bg-border" />
+
+          <ToolBtn value="marker" icon={Pen} label="Маркер (рисует метки, видны всем)" />
+          <ToolBtn value="eraser" icon={Eraser} label="Ластик (стирает маркеры)" />
 
           <div className="my-2 h-px w-8 bg-border" />
 
