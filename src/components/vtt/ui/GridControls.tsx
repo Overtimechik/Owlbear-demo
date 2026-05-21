@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   Grid3X3,
-  Hexagon,
   Diamond,
   RotateCcw,
   RefreshCw,
@@ -56,16 +55,6 @@ export const GridControls: React.FC<GridControlsProps> = ({
       value: 'square',
       title: 'Square',
       icon: <Grid3X3 size={16} />,
-    },
-    {
-      value: 'hex-v',
-      title: 'Hex (Vertical)',
-      icon: <Hexagon size={16} />,
-    },
-    {
-      value: 'hex-h',
-      title: 'Hex (Horizontal)',
-      icon: <Hexagon size={16} style={{ transform: 'rotate(90deg)' }} />,
     },
     {
       value: 'diamond',

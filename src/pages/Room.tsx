@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -225,19 +224,6 @@ const RoomPage = () => {
           {/* Floating bottom controls */}
           <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center">
             <div className="pointer-events-auto flex items-center gap-3 rounded-xl border border-border bg-card/90 px-4 py-2 shadow-deep backdrop-blur">
-              <span className="text-xs text-muted-foreground">Grid</span>
-              <div className="w-32">
-                <Slider
-                  min={30}
-                  max={150}
-                  step={5}
-                  value={[gridSize]}
-                  onValueChange={(v) => setGridSize(v[0])}
-                  onValueCommit={(v) => updateGridSize(v[0])}
-                />
-              </div>
-              <span className="w-8 text-xs tabular-nums text-muted-foreground">{gridSize}px</span>
-              <div className="h-6 w-px bg-border" />
               <Button
                 variant={room.fog_enabled ? "default" : "outline"}
                 size="sm"
